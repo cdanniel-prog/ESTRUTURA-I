@@ -84,7 +84,15 @@ void capturarSenha(char *senha){
 
 //Função para cadastrar um novo usuário
 void cadastrarUsuario(Banco *banco){
+    if(banco -> totalUsuarios >= QUANTIDADE_USUARIOS){
+        printf("Erro: Limite de usuários alcançado!\n");
+        return;
+    }
     Usuario *novoUsuario = (Usuario*)malloc(sizeof(Usuario));
+    if(!novoUsuario){
+        printf("Erro ao alocar memória para o novo usuário!\n");
+        return;
+    }
     novoUsuario->saldo = 0.0f;
 
     //Solicitar o nome do usuário
@@ -152,38 +160,33 @@ void editarUsuario(Banco *banco){
     }
 }
     
-// //Função para excluir um usuário
-// void excluirUsuario(Banco *banco){
-//     int indice;
-//     listarUsuarios(banco);
-//     printf("Selecione o número do usuário que deseja excluir: ");
-//     scanf("%d", &indice);
-//     indice--; //Ajutar para o índice baseado em zero
-//     if(indice >= 0 && indice < banco -> totalUsuarios){
-//         for(int i = indice; i < banco -> totalUsuarios - 1; i++){
-//             banco -> usuarios[i] = banco -> usuarios[i + 1];
-//         }
-//         banco -> totalUsuarios--;
-//         if(banco -> totalUsuarios > 0 && !banco -> usuarios){
-//             printf("Erro ao realocar memória!\n");
-//             exit(1);
-//         }
-//         printf("Usuário excluído com sucesso!\n\n");
-//     } else {
-//         printf("Erro: Índice inválido!\n\n");
-//     }
-// }
+//Função para excluir um usuário
+void excluirUsuario(Banco *banco){
+    int indice;
+    listarUsuarios(banco);
+    printf("Selecione o número do usuário que deseja excluir: ");
+    scanf("%d", &indice);
+    indice--; //Ajutar para o índice baseado em zero
+    if(indice >= 0 && indice < banco -> totalUsuarios){
+        free(banco -> usuarios[indice]);
+        for(int i = indice; i < banco -> totalUsuarios - 1; i++){
+            banco -> usuarios[i] = banco -> usuarios[i + 1];
+        }
+        banco -> totalUsuarios--;
+        printf("Usuário excluído com sucesso!\n\n");
+    } else {
+        printf("Erro: Índice inválido!\n\n");
+    }
+}
 
 //Função para sair do programa e liberar a memória alocada
 void sair(Banco *banco){
     //Liberar a memória alocada para os usuários
-    if(banco -> usuarios != NULL){
+    for(int i = 0; i < banco -> totalUsuarios; i++){
         free(banco -> usuarios);
     }
-
     //Liberar a memória alocada para o banco
     free(banco);
-
     printf("Obrigado por utilizar o Banco Digital CDBank. Até logo!\n");
     exit(0); //Encerra o programa
 }
@@ -207,6 +210,7 @@ int realizarLogin(Banco *banco) {
         }
         printf("Email ou senha incorretos! Você tem %d tentativa(s) restante(s).\n\n", tentativas -1);
     }
+    printf("Login falhou. Retornando ao menu principal.\n");
     return -1;
 }
 
@@ -223,16 +227,34 @@ void verificarSaldo(Banco *banco, int usuarioID){
 //Função para realizar depósito
 void realizarDeposito(Banco *banco, int usuarioID){
     float valor;
-    printf("Digite o valor do depósito: R$ ");
-    scanf("%f", &valor);
-    banco -> usuarios[usuarioID]->saldo += valor;
-    printf("Depósito de R$ %.2f realizado com sucesso!\n\n", valor);
+    int resultado;
+    
+    while(1){
+        printf("Digite o valor do depósito: R$ ");
+        resultado = scanf("%f", &valor);
+
+        if(resultado == 1 && valor > 0){
+            banco -> usuarios[usuarioID]->saldo += valor;
+            printf("Depósito de R$ %.2f realizado com sucesso!\n\n", valor);
+            break;
+        } else{
+            printf("Erro: Valor inválido! Insira um valor positivo.\n");
+            while(getchar() != '\n');
+        }
+    }
 }
 //Função para realizar saque
 void realizarSaque(Banco *banco, int usuarioID){
     float valor;
+    int resultado;
+    do{
     printf("Digite o valor do saque: R$ ");
-    scanf("%f", &valor);
+    resultado = scanf("%f", &valor);
+    if(resultado != 1 || valor <= 0){
+        printf("Erro: Valor inválido! Insira um valor positivo.\n");
+        while(getchar() != '\n');
+    }
+    } while(resultado != 1 || valor <= 0);
     if(valor <= banco -> usuarios[usuarioID]->saldo){
         banco -> usuarios[usuarioID]->saldo -= valor;
         printf("Saque de R$ %.2f realizado com sucesso!\n\n", valor);
@@ -252,19 +274,26 @@ void alterarSenha(Banco *banco, int usuarioID){
 void realizarTransferencia(Banco *banco, int usuarioID){
     int destinatarioID;
     float valor;
+    int resultado;
     listarUsuarios(banco);
     printf("Selecione o número do usuário para quem deseja transferir: ");
     scanf("%d", &destinatarioID);
-    destinatarioID--;
-    if(destinatarioID >= 0 && destinatarioID < banco -> totalUsuarios && destinatarioID != usuarioID){
-        printf("Digite o valor da transferência: R$ ");
-        scanf("%f", &valor);
-        if(valor <= banco -> usuarios[usuarioID]->saldo){
-            banco -> usuarios[usuarioID]->saldo -=valor;
-            banco -> usuarios[destinatarioID]->saldo += valor;
-            printf("Transferência de R$ %.2f realizada com sucesso para %s!\n\n", valor, banco -> usuarios[destinatarioID]->email);
-        } else{
-            printf("Saldo Insuficiente!\n\n");
+    destinatarioID--; 
+    if(destinatarioID >= 0 && destinatarioID < banco -> totalUsuarios && destinatarioID != usuarioID){     
+        do{
+        printf("Digite o valor da transferência: ");
+        resultado = scanf("%f", &valor);
+            if(resultado != 1 || valor <= 0){
+                printf("Erro: Valor inválido! Insira um valor positivo.\n");
+                while(getchar() != '\n');
+    }
+    } while(resultado != 1 || valor <= 0);
+    if(valor <= banco -> usuarios[usuarioID]->saldo){
+        banco -> usuarios[usuarioID]->saldo -=valor;
+        banco -> usuarios[destinatarioID]->saldo += valor;
+        printf("Transferência de R$ %.2f realizada com sucesso para %s!\n\n", valor, banco -> usuarios[destinatarioID]->email);
+    } else{
+        printf("Saldo Insuficiente!\n\n");
         }       
     } else{
         printf("Erro: Usuário inválido!\n\n");
@@ -281,9 +310,13 @@ void menuNaoCadastrado(Banco *banco){
         printf("3.Editar usuário\n");
         printf("4. Excluir usuário\n");
         printf("5. Sair\n");
-        printf("Escolha uma opção: ");
-        scanf("%d", &opcao);
-        switch (opcao){
+        printf("\nEscolha uma opção: ");
+
+        while (scanf("%d", &opcao) != 1 || opcao < 1 || opcao > 5){
+            while(getchar() != '\n');
+        }
+
+        switch (opcao){     
             case 1: 
                 cadastrarUsuario(banco);
                 break;
@@ -294,7 +327,7 @@ void menuNaoCadastrado(Banco *banco){
                 editarUsuario(banco);
                 break;
             case 4: 
-                // excluirUsuario(banco);
+                excluirUsuario(banco);
                 break;
             case 5: 
                 // sair(banco);
@@ -318,8 +351,11 @@ void menuUsuario(Banco *banco, int usuarioID){
         printf("4. Alterar Senha\n");
         printf("5. Realizar Transferências\n");
         printf("6. Sair\n");
-        printf("Escolha uma opção: ");
-        scanf("%d", &opcao);
+        printf("\nEscolha uma opção: ");
+
+        while (scanf("%d", &opcao) != 1 || opcao < 1 || opcao > 6){
+            while(getchar() != '\n');
+        }
 
         switch (opcao){
             case 1:
@@ -338,7 +374,7 @@ void menuUsuario(Banco *banco, int usuarioID){
                 realizarTransferencia(banco, usuarioID);
                 break;
             case 6:
-                // sair(banco);
+                //sair(banco);
                 return;
 
             default:
